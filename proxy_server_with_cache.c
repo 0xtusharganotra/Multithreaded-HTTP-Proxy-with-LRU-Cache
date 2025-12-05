@@ -98,7 +98,7 @@ int main(int argc, char * argv[]) {
 	server_addr.sin_addr.s_addr = INADDR_ANY; // INA..Y basically binds our network address or local host address so that request from both can be accepeted 
 
     // Binding the socket
-	if( bind(proxy_socketId, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0 ) // id binding of main socket and server addr fails 
+	if( bind(proxy_socketId, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0 ) // if binding of main socket and server addr(port 8080) fails because of some reason like port is in use or something..
 	{
 		perror("Port is not free\n");
 		exit(1);
@@ -113,4 +113,44 @@ int main(int argc, char * argv[]) {
 		perror("Error while Listening !\n");
 		exit(1);
 	}
+
+	int i = 0; // Iterator for thread_id (tid) and Accepted Client_Socket for each thread
+	int Connected_socketId[MAX_CLIENTS];   // This array stores socket descriptors of connected clients bsaically socket ids that were created when new thread is spun after client is connected and sends request
+
+    // Infinite Loop for accepting connections
+	while(1)
+	{
+		
+		bzero((char*)&client_addr, sizeof(client_addr));			// Clears struct client_addr
+		client_len = sizeof(client_addr); // set to zero
+
+        // Accepting the connections
+		client_socketId = accept(proxy_socketId, (struct sockaddr*)&client_addr,(socklen_t*)&client_len);	// Accepts connection and returns a new socket if which is generated from client ip address and length of client address
+		if(client_socketId < 0)
+		{
+			fprintf(stderr, "Error in Accepting connection !\n");
+			exit(1);
+		}
+		else{
+			Connected_socketId[i] = client_socketId; // Storing accepted client into array
+		}
+
+		// This is just to display client socket id , client ip address 
+		struct sockaddr_in* client_pt = (struct sockaddr_in*)&client_addr;
+		struct in_addr ip_addr = client_pt->sin_addr;
+		char str[INET_ADDRSTRLEN];										// INET_ADDRSTRLEN: Default ip address size
+		inet_ntop( AF_INET, &ip_addr, str, INET_ADDRSTRLEN );
+		printf("Client is connected with port number: %d and ip address: %s \n",ntohs(client_addr.sin_port), str);
+		printf("Socket values of index %d in main function is %d\n",i, client_socketId);
+		
+		//spinning up a new thread for every user
+		pthread_create(&tid[i],NULL,thread_fn, (void*)&Connected_socketId[i]); // Creating a thread for each client accepted
+		i++; 
+	}
+
+
+
+
+	close(proxy_socketId);									// Close Main socket after infinite loop ends or basically when server stops running 
+ 	return 0;
 }
