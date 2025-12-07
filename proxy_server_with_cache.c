@@ -47,13 +47,146 @@ pthread_mutex_t lock; // lock is used for locking the cache
 cache_element *head; // pointer to the cache
 int cache_size;      // cache_size denotes the current size of the cache 
 
+
+void* thread_fn(void* socketNew)
+{
+	sem_wait(&seamaphore); // reduces the value of sem by 1 basically act as gate keeper will allow only until value is not negative once its negative will put all the users in waiting queue until some user leave the connection and make its value positive 
+	int p;
+	sem_getvalue(&seamaphore,&p); // puuting the value of sem lock in p
+	printf("semaphore value:%d\n",p);
+    int* t= (int*)(socketNew);
+	int socket=*t;           // Socket is socket descriptor of the connected Client bsaically created a copy of socket new that we recieved as arument in thread_fn
+	int bytes_send_client,len;	  // Bytes Transferred , data sent by the client/user or http header is get stored inside bytes_send_client
+
+	
+	char *buffer = (char*)calloc(MAX_BYTES,sizeof(char));	// Creating buffer of 4kb for each client with initial value as 0 as its calloc not malloc 
+	
+	
+	bzero(buffer, MAX_BYTES);								// Making buffer zero
+	bytes_send_client = recv(socket, buffer, MAX_BYTES, 0); // Receiving the Request of client by proxy server based on the socket id assigned to the client 
+	
+	while(bytes_send_client > 0) // now thing is out tcp dont always send the completed data from clients to server so we keep asking for the data until the we see \r\n\r\n in the end
+	{
+		len = strlen(buffer);
+        //loop until u find "\r\n\r\n" in the buffer
+		if(strstr(buffer, "\r\n\r\n") == NULL)
+		{	
+			bytes_send_client = recv(socket, buffer + len, MAX_BYTES - len, 0);
+		}
+		else{
+			break;
+		}
+	}
+	
+	char *tempReq = (char*)malloc(strlen(buffer)*sizeof(char)+1); // basically creating a copy of buffer here because we might make changes in buffer later
+    //tempReq, buffer both store the http request sent by client
+	for (int i = 0; i < strlen(buffer); i++)
+	{
+		tempReq[i] = buffer[i];
+	}
+	
+	//checking for the request in cache 
+	struct cache_element* temp = find(tempReq); // we are checking if the data from this req is already there in the cache or not return null if not other wise returns whole data that we can send back to the user
+
+	if( temp != NULL ){
+    int size = temp->len / sizeof(char);
+    int pos = 0;
+    char response[MAX_BYTES];
+
+    while(pos < size){
+        bzero(response, MAX_BYTES);
+        
+        // Calculate how much to send in THIS specific chunk
+        // Is the remaining data bigger than 4KB? Take 4KB.
+        // If not, just take whatever is left.
+        int chunk_size = MAX_BYTES;
+        if (size - pos < MAX_BYTES) {
+            chunk_size = size - pos;
+        }
+
+        // Copy only the valid data
+        for(int i = 0; i < chunk_size; i++){
+            response[i] = temp->data[pos];
+            pos++;
+        }
+
+        // IMPORTANT: Only send 'chunk_size', not 'MAX_BYTES' this way we send larger data in chunks or basically blast data to client in chunks not all at once to be safe 
+        send(socket, response, chunk_size, 0);
+    }
+    
+    printf("Data retrieved from the Cache\n\n");
+}
+	
+	
+	else if(bytes_send_client > 0) // that means data is not present inside cache but we recieved some data from the user
+	{
+		len = strlen(buffer); 
+		//Parsing the request
+		ParsedRequest* request = ParsedRequest_create(); // this will basically breaks the raw string coming from the user and converts into request->host and manly meaningful chunks 
+		
+        //ParsedRequest_parse returns 0 on success and -1 on failure.On success it stores parsed request in
+        // the request
+		if (ParsedRequest_parse(request, buffer, len) < 0)  // basically stores the parsed data inside request if valud otherwise return -1
+		{
+		   	printf("Parsing failed\n");
+		}
+		else
+		{	
+			bzero(buffer, MAX_BYTES); // cleaned buffer 
+			if(!strcmp(request->method,"GET"))	// our server currently only supports get request any other req like put, post , update , patch will instantly be neglected 						
+			{
+                
+				if( request->host && request->path && (checkHTTPversion(request->version) == 1) )
+				{
+					bytes_send_client = handle_request(socket, request, tempReq);		// Handle GET request
+					if(bytes_send_client == -1)
+					{	
+						sendErrorMessage(socket, 500); // no data came from server that means its a issue from server end 
+					}
+
+				}
+				else
+					sendErrorMessage(socket, 500);			// 500 Internal Error that means issue from proxies end or some issue with users req 
+
+			}
+            else
+            {
+                printf("This code doesn't support any method other than GET\n");
+            }
+    
+		}
+        //freeing up the request pointer
+		ParsedRequest_destroy(request);
+
+	}
+
+	else if( bytes_send_client < 0) //return -ve when data is not recieved from client because of some error bytes_send_client basically uses recv()
+	{
+		perror("Error in receiving from client.\n"); 
+	}
+	else if(bytes_send_client == 0) // 0 when client is not connected or diconnected without sending and req 
+	{
+		printf("Client disconnected!\n");
+	}
+
+	shutdown(socket, SHUT_RDWR); //shut down socket and read write 
+	close(socket);
+	free(buffer);
+	sem_post(&seamaphore);	// basically same as sem_signal increased the value of sem lock so that some other client can use it 
+	
+	sem_getvalue(&seamaphore,&p);
+	printf("Semaphore post value:%d\n",p);
+	free(tempReq);
+	return NULL;
+}
+
 int main(int argc, char * argv[]) {
 
     //argc = argument count 
     //argv = argument vector 
 
 	int client_socketId, client_len; // client_socketId == to store the client socket id or basically the private socket id that spun up with every thread creation this one actually participate in communication 
-	struct sockaddr_in server_addr, client_addr; // Address of client and server to be assigned
+	struct sockaddr_in server_addr, client_addr; // Address of client and server to be assigned , client_addr - client ip , server_addr = combgination of your ip , your wifi/network ip address 
 
     sem_init(&seamaphore,0,MAX_CLIENTS); // Initializing seamaphore and lock, here 0 mean semaphore is shared among threads not processes 
     pthread_mutex_init(&lock,NULL); // Initializing lock for cache
@@ -78,7 +211,8 @@ int main(int argc, char * argv[]) {
     //SOCK_STREAM = tells its a tcp connection 
     //0 - just another protocol 
 
-	if( proxy_socketId < 0) // no socket id created 
+	if( proxy_socketId < 0) // no 
+	// socket id created 
 	{
 		perror("Failed to create socket.\n");
 		exit(1);
