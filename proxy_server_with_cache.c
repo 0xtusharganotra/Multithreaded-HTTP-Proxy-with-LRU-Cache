@@ -176,7 +176,7 @@ int connectRemoteServer(char *host_addr, int port_num)
 	return remoteSocket;
 }
 
-int handle_request(int clientSocket, ParsedRequest *request, char *tempReq)
+int handle_request(int clientSocket, struct ParsedRequest *request, char *tempReq)
 
 {
 
@@ -294,9 +294,9 @@ int handle_request(int clientSocket, ParsedRequest *request, char *tempReq)
 
 void *thread_fn(void *socketNew)
 {
-	sem_wait(&seamaphore); // reduces the value of sem by 1 basically act as gate keeper will allow only until value is not negative once its negative will put all the users in waiting queue until some user leave the connection and make its value positive
+	sem_wait(&semaphore); // reduces the value of sem by 1 basically act as gate keeper will allow only until value is not negative once its negative will put all the users in waiting queue until some user leave the connection and make its value positive
 	int p;
-	sem_getvalue(&seamaphore, &p); // puuting the value of sem lock in p
+	sem_getvalue(&semaphore, &p); // puuting the value of sem lock in p
 	printf("semaphore value:%d\n", p);
 	int *t = (int *)(socketNew);
 	int socket = *t;			// Socket is socket descriptor of the connected Client bsaically created a copy of socket new that we recieved as arument in thread_fn
@@ -368,7 +368,7 @@ void *thread_fn(void *socketNew)
 	{
 		len = strlen(buffer);
 		// Parsing the request
-		ParsedRequest *request = ParsedRequest_create(); // this will basically breaks the raw string coming from the user and converts into request->host and manly meaningful chunks
+		struct ParsedRequest *request = ParsedRequest_create(); // this will basically breaks the raw string coming from the user and converts into request->host and manly meaningful chunks
 
 		// ParsedRequest_parse returns 0 on success and -1 on failure.On success it stores parsed request in
 		//  the request
@@ -414,9 +414,9 @@ void *thread_fn(void *socketNew)
 	shutdown(socket, SHUT_RDWR); // shut down socket and read write
 	close(socket);
 	free(buffer);
-	sem_post(&seamaphore); // basically same as sem_signal increased the value of sem lock so that some other client can use it
+	sem_post(&semaphore); // basically same as sem_signal increased the value of sem lock so that some other client can use it
 
-	sem_getvalue(&seamaphore, &p);
+	sem_getvalue(&semaphore, &p);
 	printf("Semaphore post value:%d\n", p);
 	free(tempReq);
 	return NULL;
@@ -431,8 +431,8 @@ int main(int argc, char *argv[])
 	int client_socketId, client_len;			 // client_socketId == to store the client socket id or basically the private socket id that spun up with every thread creation this one actually participate in communication
 	struct sockaddr_in server_addr, client_addr; // Address of client and server to be assigned , client_addr - client ip , server_addr = combination of your ip , your wifi/network ip address
 
-	sem_init(&seamaphore, 0, MAX_CLIENTS); // Initializing seamaphore and lock, here 0 mean semaphore is shared among threads not processes
-	pthread_mutex_init(&lock, NULL);	   // Initializing lock for cache
+	sem_init(&semaphore, 0, MAX_CLIENTS); // Initializing seamaphore and lock, here 0 mean semaphore is shared among threads not processes
+	pthread_mutex_init(&lock, NULL);	  // Initializing lock for cache
 
 	if (argc == 2) // checking whether two arguments are received or not (./port 8080 so two arg)
 	{
@@ -503,7 +503,7 @@ int main(int argc, char *argv[])
 		client_socketId = accept(proxy_socketId, (struct sockaddr *)&client_addr, (socklen_t *)&client_len); // Accepts connection and returns a new socket if which is generated from client ip address and length of client address
 		if (client_socketId < 0)
 		{
-			printf(stderr, "Error in Accepting connection !\n");
+			fprintf(stderr, "Error in Accepting connection !\n");
 			exit(1);
 		}
 		else
