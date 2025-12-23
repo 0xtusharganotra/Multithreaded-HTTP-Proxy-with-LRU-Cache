@@ -1,12 +1,12 @@
 # Multithreaded Proxy Server with LRU Cache
 
-## ** Overview**
+## Overview
 
 This project is a high-performance, multithreaded HTTP proxy server written in C. It is designed to handle multiple concurrent client requests efficiently. A key feature of this proxy is its integrated **Least Recently Used (LRU) cache**, which significantly improves response times by storing and serving frequently accessed web pages from memory, reducing the need to fetch them repeatedly from remote servers.
 
 <img width="1023" height="558" alt="image" src="https://github.com/user-attachments/assets/cd4de2ab-c5d6-4995-87a6-f1c638c0df6e" />
 
-## ** Key Features**
+## Key Features
 
 - **Multithreaded Architecture:** Uses a thread-per-client model to handle multiple connections simultaneously, ensuring high throughput and responsiveness.
 - **LRU Caching Implementation:**
@@ -18,9 +18,9 @@ This project is a high-performance, multithreaded HTTP proxy server written in C
 - **HTTP Request Parsing:** Parses incoming HTTP GET requests to extract the hostname, port, and path.
 - **Error Handling:** Generates and sends appropriate HTTP error responses (e.g., 400, 403, 404, 500, 501, 505) to the client.
 
-## ** Technical Architecture**
+## Technical Architecture
 
-### **Core Components**
+### Core Components
 
 - **Main Thread:** Listens for incoming client connections on a specified port. Upon accepting a connection, it spawns a new worker thread.
 - **Worker Threads (`thread_fn`):** Each thread is responsible for handling a single client request. Its tasks include:
@@ -34,20 +34,20 @@ This project is a high-performance, multithreaded HTTP proxy server written in C
   - `lru_time_track`: A timestamp indicating the last access time.
   - `next`: A pointer to the next node in the list.
 
-### **Cache Operations**
+### Cache Operations
 
 - **`find(char* url)`:** Searches the cache for a given URL. If found, it updates the `lru_time_track` to the current time (marking it as most recently used) and returns the cache element.
 - **`add_cache_element(char* data, int size, char* url)`:** Adds a new element to the cache. If the cache is full, it calls `remove_cache_element()` to free up space. The new element is always added to the head of the list.
 - **`remove_cache_element()`:** Iterates through the cache to find the element with the oldest `lru_time_track` and removes it.
 
-## ** How to Build and Run**
+## How to Build and Run
 
-### **Prerequisites**
+### Prerequisites
 
 - GCC Compiler
 - Pthread library (usually included with GCC on Linux)
 
-### **Compilation**
+### Compilation
 
 To compile the project, run the following command in your terminal:
 
