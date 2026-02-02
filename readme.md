@@ -1,83 +1,80 @@
-# Multithreaded Proxy Server with O(1) LRU Cache
+# Multithreaded HTTP Proxy Server with $O(1)$ LRU Cache
 
-## Overview
+A high-performance, multithreaded HTTP proxy server written in C, featuring a custom-built, thread-safe LRU cache.
 
-This repository contains a multithreaded HTTP proxy server in C with an O(1) LRU cache. The cache now uses a doubly-linked list (for recency order) plus a simple hash map (separate chaining) mapping URL → node for constant-time lookups and tail-pop eviction.
+![Proxy Server Overview](https://github.com/user-attachments/assets/cd4de2ab-c5d6-4995-87a6-f1c638c0df6e)
 
-## Main changes (current code)
+## 📌 Overview
 
-- Cache nodes are `cache_node` with `prev`/`next` pointers (doubly-linked list).
-- A hash map (array of chains) provides O(1) average lookup from URL → node.
-- `find()` performs a hashmap lookup and moves the found node to head (most recent).
-- `add_cache_element()` evicts from the tail (O(1)) until enough space, inserts the new node at head and updates the hashmap.
-- `remove_cache_element()` pops the tail and removes its hash map entry in O(1).
-- All previous time-based LRU fields and scans were removed; eviction is based solely on list recency.
+This project implements a proxy server capable of handling multiple concurrent client requests. By integrating an **LRU (Least Recently Used) Cache**, the server reduces latency for repeated requests by serving content directly from memory.
 
-These changes are implemented in `proxy_server_with_cache.c` (cache logic) and the build is handled by the `Makefile`.
+### ⚡ The $O(1)$ Optimization
 
-## Key Features
+Unlike basic caches that use a time-based scan ($O(n)$), this implementation uses a **Hash Map** combined with a **Doubly Linked List**.
 
-- Multithreaded worker-per-connection model using `pthread`s.
-- O(1) LRU cache (doubly-linked list + hashmap).
-- Mutex-protected cache data structure (`pthread_mutex_t lock`).
-- Semaphore-based concurrency limit.
-- HTTP GET parsing and forwarding via `proxy_parse.{h,c}`.
-
-## Files of interest
-
-- `proxy_server_with_cache.c` — main proxy + updated cache implementation
-- `proxy_parse.c`, `proxy_parse.h` — request parsing helpers
-- `Makefile` — build rules (produces `proxy` executable)
-
-## How to build
-
-The project uses the provided `Makefile`. Build with:
-
-```bash
-make
-```
-
-This produces the `proxy` binary (linking `proxy_server_with_cache.o` and `proxy_parse.o`).
-
-## How to run
-
-Start the proxy (default port 8080) or provide a port:
-
-```bash
-./proxy             # listens on 8080 by default (or)
-./proxy 8080        # specify port
-```
-
-Limit of concurrent clients is controlled by the built-in semaphore.
-
-## Example: curl via proxy
-
-From another terminal, test the proxy with:
-
-```bash
-curl -x http://localhost:8080 http://example.com
-```
-
-On first request you'll see a cache miss and the proxy will fetch from the remote server and store the response. Subsequent identical requests (same host+path) will be served from cache (cache hit).
-
-Included in this repo is `result_proxy_server.png` which shows a sample `curl -x http://localhost:8080 http://example.com` run and a cache hit on repeat requests.
-
-## Notes and caveats
-
-- The cache size limits remain: `MAX_SIZE` and `MAX_ELEMENT_SIZE` are defined in `proxy_server_with_cache.c`.
-- The cache implementation is single-shard and protected by a single mutex — suitable for correctness and clarity; you can extend to sharded locking for higher concurrency.
-- Do not modify socket/thread logic unless you need additional features — the README documents the current behavior and the cache changes only.
-
-## Troubleshooting
-
-- If `make` fails, ensure `gcc` and development headers for pthreads are installed.
-- If the proxy cannot connect to a remote host, verify network connectivity and DNS resolution from the host running the proxy.
+- **Hash Map:** Allows for $O(1)$ lookup of cached URLs.
+- **Doubly Linked List:** Allows for $O(1)$ eviction of the oldest items and promotion of recently used items.
 
 ---
 
-If you want, I can also:
+## ✨ Features
 
-- Add the exact terminal transcript text for `curl -x http://localhost:8080 http://example.com` into this README.
-- Add a short section describing how to verify cache hits (e.g., repeat curl and watch proxy logs).
+- **Multithreaded Architecture:** Uses a thread-per-client model via `pthread` for high concurrency.
+- **Advanced LRU Caching:** Implements a true $O(1)$ cache using a Hash Map and Doubly Linked List.
+- **Thread-Safe Design:** Uses `pthread_mutex_t` to prevent race conditions during cache access.
+- **Concurrency Control:** Employs semaphores to manage the maximum number of active worker threads.
+- **HTTP/1.1 Support:** Specifically handles `GET` requests, parsing hostnames, ports, and paths.
+- **Robust Error Handling:** Returns standard HTTP error codes (400, 404, 500, etc.) when things go wrong.
 
-Which of these would you like me to add next?
+---
+
+## 🏗 Technical Architecture
+
+### Core Components
+
+1.  **Main Thread:** Listens for connections on the designated port and spawns worker threads.
+2.  **Worker Threads (`thread_fn`):** Handles the entire lifecycle of a client request—parsing, cache checking, remote fetching, and responding.
+3.  **Cache Logic:** \* **Promotion:** When a URL is accessed, it is moved to the **Head** of the list.
+    - **Eviction:** When the cache is full, the **Tail** of the list is removed to make space.
+
+---
+
+## 🛠 Build & Run
+
+### Prerequisites
+
+- GCC Compiler
+- Pthread library (Standard on Linux/macOS)
+
+### Compilation
+
+You can compile using the provided **Makefile**:
+
+```bash
+make clean
+make
+```
+
+### Running the server
+
+```bash
+./proxy 8080
+```
+
+## Testing
+
+Use curl to test the proxy's functionality and caching.
+
+1. Initial Request (Cache Miss)
+   The proxy will fetch the data from the remote server and store it.
+
+```bash
+curl -x http://localhost:8080 [http://example.com](http://example.com)
+```
+
+2. Subsequent Request (Cache Hit)
+   The proxy will serve the data instantly from the $O(1)$ LRU cache.
+
+```bash
+curl -x http://localhost:8080 [http://example.com](http://example.com)
+```
