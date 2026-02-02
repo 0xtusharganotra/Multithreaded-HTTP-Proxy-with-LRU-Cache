@@ -28,7 +28,6 @@ Unlike basic caches that use a time-based scan ($O(n)$), this implementation use
 
 ---
 
-## 🏗 Technical Architecture
 
 ### Core Components
 
@@ -78,3 +77,6 @@ curl -x http://localhost:8080 [http://example.com](http://example.com)
 ```bash
 curl -x http://localhost:8080 [http://example.com](http://example.com)
 ```
+
+<img width="737" height="858" alt="proxy_server" src="https://github.com/user-attachments/assets/c219f263-9818-4a72-8957-fad7b712616b" />
+
