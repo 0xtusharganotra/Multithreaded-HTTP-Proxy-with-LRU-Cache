@@ -1,4 +1,4 @@
-# Multithreaded HTTP Proxy Server with $O(1)$ LRU Cache
+# Multithreaded HTTP Proxy Server with O(1) LRU Cache
 
 A high-performance, multithreaded HTTP proxy server written in C, featuring a custom-built, thread-safe LRU cache.
 
@@ -8,19 +8,19 @@ A high-performance, multithreaded HTTP proxy server written in C, featuring a cu
 
 This project implements a proxy server capable of handling multiple concurrent client requests. By integrating an **LRU (Least Recently Used) Cache**, the server reduces latency for repeated requests by serving content directly from memory.
 
-### ⚡ The $O(1)$ Optimization
+### ⚡ The O(1) Optimization
 
-Unlike basic caches that use a time-based scan ($O(n)$), this implementation uses a **Hash Map** combined with a **Doubly Linked List**.
+Unlike basic caches that use a time-based scan O(n), this implementation uses a **Hash Map** combined with a **Doubly Linked List**.
 
-- **Hash Map:** Allows for $O(1)$ lookup of cached URLs.
-- **Doubly Linked List:** Allows for $O(1)$ eviction of the oldest items and promotion of recently used items.
+- **Hash Map:** Allows for O(1) lookup of cached URLs.
+- **Doubly Linked List:** Allows for O(1) eviction of the oldest items and promotion of recently used items.
 
 ---
 
 ## ✨ Features
 
 - **Multithreaded Architecture:** Uses a thread-per-client model via `pthread` for high concurrency.
-- **Advanced LRU Caching:** Implements a true $O(1)$ cache using a Hash Map and Doubly Linked List.
+- **Advanced LRU Caching:** Implements a true O(1) cache using a Hash Map and Doubly Linked List.
 - **Thread-Safe Design:** Uses `pthread_mutex_t` to prevent race conditions during cache access.
 - **Concurrency Control:** Employs semaphores to manage the maximum number of active worker threads.
 - **HTTP/1.1 Support:** Specifically handles `GET` requests, parsing hostnames, ports, and paths.
